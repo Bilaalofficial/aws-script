@@ -91,5 +91,19 @@ DRY_RUN=true ./dlt-ec2.sh
 * **Resource Safety:** Scripts only affect resources with the configured `TAG`.
 * **Check AWS Console:** Always verify resources before running `dlt-ec2.sh`.
 
+* You can change the number of ec2 by changing EC2_COUNT=.
+* # ---------- Configurable Variables ----------
+REGION="ap-south-1"                     # Region: Mumbai
+AZ="ap-south-1a"                        # Availability Zone
+VPC_CIDR="10.0.0.0/16"
+SUBNET_CIDR="10.0.1.0/24"
+KEY_NAME="my-key"
+TAG="MyDefault"
+INSTANCE_TYPE="t2.micro"                # Free Tier eligible
+FALLBACK_TYPE="t3.micro"                # Free Tier alternative
+EC2_COUNT=1                             # ✅ Default 1 (Free Tier Safe)
+# -------------------------------------------
+
+
 ---
 
