@@ -1,3 +1,6 @@
+Perfect 👍 Let’s make it crystal clear with an example code snippet in your README.
+
+Here’s the **final updated README** 👇
 
 ---
 
@@ -29,7 +32,7 @@ A collection of shell scripts to automate common AWS tasks such as creating and 
 2. Navigate to **IAM (Identity & Access Management)**.
 3. Go to **Users** → Select your IAM user.
 4. Under **Security credentials** → click **Create access key**.
-5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe)
+5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe).
 
 ---
 
@@ -87,23 +90,24 @@ DRY_RUN=true ./dlt-ec2.sh
 
 ## ⚠️ Notes
 
-* **Free Tier Friendly:** By default, the scripts launch 1 `t2.micro` EC2 instance.
-* **Resource Safety:** Scripts only affect resources with the configured `TAG`.
-* **Check AWS Console:** Always verify resources before running `dlt-ec2.sh`.
+* **Free Tier Friendly:** By default, the scripts launch **1 `t2.micro` EC2 instance**.
+* **Change Number of Instances:** You can increase or decrease the number of EC2 instances by editing the `EC2_COUNT` variable inside **`cr-ec2.sh`**.
 
-* You can change the number of ec2 by changing EC2_COUNT=.
-* # ---------- Configurable Variables ----------
-REGION="ap-south-1"                     # Region: Mumbai
-AZ="ap-south-1a"                        # Availability Zone
-VPC_CIDR="10.0.0.0/16"
-SUBNET_CIDR="10.0.1.0/24"
+Example:
+
+```bash
+# ---------- Configurable Variables ----------
+REGION="ap-south-1"
 KEY_NAME="my-key"
 TAG="MyDefault"
-INSTANCE_TYPE="t2.micro"                # Free Tier eligible
-FALLBACK_TYPE="t3.micro"                # Free Tier alternative
-EC2_COUNT=1                             # ✅ Default 1 (Free Tier Safe)
+EC2_COUNT=1    # Change this value (e.g., 2, 3, 5...)
 # -------------------------------------------
+```
 
+➡️ If you set `EC2_COUNT=3`, the script will launch **3 EC2 instances** instead of 1.
+
+* **Resource Safety:** Scripts only affect resources with the configured `TAG`.
+* **Check AWS Console:** Always verify resources before running `dlt-ec2.sh`.
 
 ---
 
