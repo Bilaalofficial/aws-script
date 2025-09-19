@@ -29,7 +29,7 @@ A collection of shell scripts to automate common AWS tasks such as creating and 
 2. Navigate to **IAM (Identity & Access Management)**.
 3. Go to **Users** → Select your IAM user.
 4. Under **Security credentials** → click **Create access key**.
-5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe, **don’t commit them to GitHub ❌**).
+5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe)
 
 ---
 
