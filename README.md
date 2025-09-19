@@ -1,6 +1,3 @@
-Perfect 👍 Let’s make it crystal clear with an example code snippet in your README.
-
-Here’s the **final updated README** 👇
 
 ---
 
