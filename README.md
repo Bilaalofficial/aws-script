@@ -1,4 +1,3 @@
-Perfect 👍 I’ve updated your README to use the new script names:
 
 ---
 
