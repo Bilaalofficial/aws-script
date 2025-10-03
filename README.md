@@ -29,7 +29,7 @@ A collection of shell scripts to automate common AWS tasks such as creating and 
 2. Navigate to **IAM (Identity & Access Management)**.
 3. Go to **Users** → Select your IAM user.
 4. Under **Security credentials** → click **Create access key**.
-5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe, **don’t commit them to GitHub ❌**).
+5. Copy the **Access Key ID** and **Secret Access Key** (keep them safe).
 
 ---
 
@@ -87,7 +87,22 @@ DRY_RUN=true ./dlt-ec2.sh
 
 ## ⚠️ Notes
 
-* **Free Tier Friendly:** By default, the scripts launch 1 `t2.micro` EC2 instance.
+* **Free Tier Friendly:** By default, the scripts launch **1 `t2.micro` EC2 instance**.
+* **Change Number of Instances:** You can increase or decrease the number of EC2 instances by editing the `EC2_COUNT` variable inside **`cr-ec2.sh`**.
+
+Example:
+
+```bash
+# ---------- Configurable Variables ----------
+REGION="ap-south-1"
+KEY_NAME="my-key"
+TAG="MyDefault"
+EC2_COUNT=1    # Change this value (e.g., 2, 3, 5...)
+# -------------------------------------------
+```
+
+➡️ If you set `EC2_COUNT=3`, the script will launch **3 EC2 instances** instead of 1.
+
 * **Resource Safety:** Scripts only affect resources with the configured `TAG`.
 * **Check AWS Console:** Always verify resources before running `dlt-ec2.sh`.
 
