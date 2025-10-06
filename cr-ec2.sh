@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -exuo pipefail
 
 # ---------- Configurable Variables ----------
 REGION="ap-south-1"                     # Mumbai
