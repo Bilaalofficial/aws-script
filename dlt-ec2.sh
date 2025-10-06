@@ -1,11 +1,12 @@
+```bash
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # ---------- Configurable Variables ----------
 REGION="ap-south-1"     # Same region used in create script
 KEY_NAME="my-key"       # Same key name used before
 TAG="MyDefault"         # Same tag prefix used in create script
-DRY_RUN=false           # 🔥 Set to true for testing (no actual deletion)
+DRY_RUN=false           # Set to true for testing (no actual deletion)
 # -------------------------------------------
 
 run_cmd() {
@@ -18,47 +19,6 @@ run_cmd() {
 
 echo "Fetching resources with tag prefix: $TAG ..."
 
-# Get EC2 Instances
-INSTANCE_IDS=$(aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=$TAG-EC2-*" "Name=instance-state-name,Values=running,stopped" \
-  --region $REGION \
-  --query "Reservations[].Instances[].InstanceId" \
-  --output text)
-
-# Get Security Group
-SG_ID=$(aws ec2 describe-security-groups \
-  --filters "Name=group-name,Values=$TAG-sg" \
-  --region $REGION \
-  --query "SecurityGroups[0].GroupId" \
-  --output text)
-
-# Get Route Table + Associations
-RTB_ID=$(aws ec2 describe-route-tables \
-  --filters "Name=tag:Name,Values=$TAG-RTB" \
-  --region $REGION \
-  --query "RouteTables[0].RouteTableId" \
-  --output text)
-
-RTB_ASSOCIATIONS=$(aws ec2 describe-route-tables \
-  --filters "Name=tag:Name,Values=$TAG-RTB" \
-  --region $REGION \
-  --query "RouteTables[0].Associations[].RouteTableAssociationId" \
-  --output text)
-
-# Get Internet Gateway
-IGW_ID=$(aws ec2 describe-internet-gateways \
-  --filters "Name=tag:Name,Values=$TAG-IGW" \
-  --region $REGION \
-  --query "InternetGateways[0].InternetGatewayId" \
-  --output text)
-
-# Get Subnet
-SUBNET_ID=$(aws ec2 describe-subnets \
-  --filters "Name=tag:Name,Values=$TAG-Subnet" \
-  --region $REGION \
-  --query "Subnets[0].SubnetId" \
-  --output text)
-
 # Get VPC
 VPC_ID=$(aws ec2 describe-vpcs \
   --filters "Name=tag:Name,Values=$TAG-VPC" \
@@ -66,9 +26,20 @@ VPC_ID=$(aws ec2 describe-vpcs \
   --query "Vpcs[0].VpcId" \
   --output text)
 
+if [ "$VPC_ID" == "None" ] || [ -z "$VPC_ID" ]; then
+  echo "No VPC found with tag $TAG. Exiting."
+  exit 0
+fi
+
 # -------------------- Deletion Steps --------------------
 
-# Terminate EC2 Instances
+# 1. Terminate EC2 Instances
+INSTANCE_IDS=$(aws ec2 describe-instances \
+  --filters "Name=vpc-id,Values=$VPC_ID" "Name=instance-state-name,Values=running,stopped" \
+  --region $REGION \
+  --query "Reservations[].Instances[].InstanceId" \
+  --output text)
+
 if [ -n "$INSTANCE_IDS" ]; then
   echo "Terminating EC2 Instances: $INSTANCE_IDS ..."
   run_cmd "aws ec2 terminate-instances --instance-ids $INSTANCE_IDS --region $REGION"
@@ -80,50 +51,91 @@ else
   echo "No EC2 instances found."
 fi
 
-# Delete Security Group
-if [ "$SG_ID" != "None" ]; then
-  echo "Deleting Security Group: $SG_ID ..."
-  sleep 5 # give AWS time to detach
-  run_cmd "aws ec2 delete-security-group --group-id $SG_ID --region $REGION || true"
-  echo "Security Group deleted."
+# 2. Delete ENIs (Network Interfaces)
+ENIS=$(aws ec2 describe-network-interfaces \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --region $REGION \
+  --query "NetworkInterfaces[].NetworkInterfaceId" \
+  --output text)
+
+if [ -n "$ENIS" ]; then
+  for eni in $ENIS; do
+    echo "Deleting ENI: $eni ..."
+    run_cmd "aws ec2 delete-network-interface --network-interface-id $eni --region $REGION || true"
+  done
 fi
 
-# Disassociate & Delete Route Table
-if [ "$RTB_ID" != "None" ]; then
-  if [ -n "$RTB_ASSOCIATIONS" ]; then
-    for assoc in $RTB_ASSOCIATIONS; do
-      echo "Disassociating Route Table Association: $assoc ..."
-      run_cmd "aws ec2 disassociate-route-table --association-id $assoc --region $REGION || true"
-    done
-  fi
-  echo "Deleting Route Table: $RTB_ID ..."
-  run_cmd "aws ec2 delete-route-table --route-table-id $RTB_ID --region $REGION || true"
-  echo "Route Table deleted."
+# 3. Delete Subnets
+SUBNETS=$(aws ec2 describe-subnets \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --region $REGION \
+  --query "Subnets[].SubnetId" \
+  --output text)
+
+if [ -n "$SUBNETS" ]; then
+  for subnet in $SUBNETS; do
+    echo "Deleting Subnet: $subnet ..."
+    run_cmd "aws ec2 delete-subnet --subnet-id $subnet --region $REGION || true"
+  done
 fi
 
-# Detach & Delete Internet Gateway
-if [ "$IGW_ID" != "None" ]; then
-  echo "Detaching and Deleting Internet Gateway: $IGW_ID ..."
-  run_cmd "aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID --region $REGION || true"
-  run_cmd "aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID --region $REGION || true"
-  echo "Internet Gateway deleted."
+# 4. Detach & Delete Internet Gateways
+IGWS=$(aws ec2 describe-internet-gateways \
+  --filters "Name=attachment.vpc-id,Values=$VPC_ID" \
+  --region $REGION \
+  --query "InternetGateways[].InternetGatewayId" \
+  --output text)
+
+if [ -n "$IGWS" ]; then
+  for igw in $IGWS; do
+    echo "Detaching and Deleting Internet Gateway: $igw ..."
+    run_cmd "aws ec2 detach-internet-gateway --internet-gateway-id $igw --vpc-id $VPC_ID --region $REGION || true"
+    run_cmd "aws ec2 delete-internet-gateway --internet-gateway-id $igw --region $REGION || true"
+  done
 fi
 
-# Delete Subnet
-if [ "$SUBNET_ID" != "None" ]; then
-  echo "Deleting Subnet: $SUBNET_ID ..."
-  run_cmd "aws ec2 delete-subnet --subnet-id $SUBNET_ID --region $REGION || true"
-  echo "Subnet deleted."
+# 5. Delete Route Tables (except main)
+RTBS=$(aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --region $REGION \
+  --query "RouteTables[].RouteTableId" \
+  --output text)
+
+if [ -n "$RTBS" ]; then
+  for rtb in $RTBS; do
+    MAIN=$(aws ec2 describe-route-tables --route-table-ids $rtb --region $REGION \
+      --query "RouteTables[0].Associations[?Main==true]" --output text)
+    if [ -z "$MAIN" ]; then
+      echo "Deleting Route Table: $rtb ..."
+      run_cmd "aws ec2 delete-route-table --route-table-id $rtb --region $REGION || true"
+    fi
+  done
 fi
 
-# Delete VPC
-if [ "$VPC_ID" != "None" ]; then
-  echo "Deleting VPC: $VPC_ID ..."
-  run_cmd "aws ec2 delete-vpc --vpc-id $VPC_ID --region $REGION || true"
-  echo "VPC deleted."
+# 6. Delete Security Groups (except default)
+SGS=$(aws ec2 describe-security-groups \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --region $REGION \
+  --query "SecurityGroups[].GroupId" \
+  --output text)
+
+if [ -n "$SGS" ]; then
+  for sg in $SGS; do
+    NAME=$(aws ec2 describe-security-groups --group-ids $sg --region $REGION \
+      --query "SecurityGroups[0].GroupName" --output text)
+    if [ "$NAME" != "default" ]; then
+      echo "Deleting Security Group: $sg ..."
+      run_cmd "aws ec2 delete-security-group --group-id $sg --region $REGION || true"
+    fi
+  done
 fi
 
-# Delete Key Pair
+# 7. Delete VPC
+echo "Deleting VPC: $VPC_ID ..."
+run_cmd "aws ec2 delete-vpc --vpc-id $VPC_ID --region $REGION || true"
+echo "VPC deleted."
+
+# 8. Delete Key Pair
 echo "⚠️ Deleting Key Pair: $KEY_NAME (make sure it's not shared)..."
 run_cmd "aws ec2 delete-key-pair --key-name $KEY_NAME --region $REGION || true"
 run_cmd "rm -f $KEY_NAME.pem"
@@ -132,3 +144,4 @@ echo "Key Pair deleted."
 echo "---------------------------------------"
 echo "✅ Cleanup Complete: All resources with tag $TAG removed."
 echo "---------------------------------------"
+```
