@@ -1,0 +1,40 @@
+name: AWS CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  aws-scripts:
+    runs-on: ubuntu-latest
+    env:
+      REGION: "ap-south-1"
+      TAG: "MyDefault"
+      KEY_NAME: "my-key"
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Make scripts executable
+        run: |
+          chmod +x cr-ec2.sh
+          chmod +x dlt-ec2.sh
+
+      - name: Test Create Script
+        run: |
+          echo "Running cr-ec2.sh in dry-run mode"
+          ./cr-ec2.sh
+
+      - name: Test Delete Script
+        run: |
+          echo "Running dlt-ec2.sh in dry-run mode"
+          ./dlt-ec2.sh
